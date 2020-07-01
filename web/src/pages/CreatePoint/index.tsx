@@ -2,6 +2,7 @@ import React, { useEffect, useState, ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft } from 'react-icons/fi';
 import { Map, TileLayer, Marker } from 'react-leaflet';
+import { LeafletMouseEvent } from 'leaflet';
 import axios from 'axios';
 import api from '../../services/api';
 
@@ -27,15 +28,34 @@ const CreatePoint = () => {
     const [ufs, setUfs] = useState<string[]>([]);
     const [cities, setCities] = useState<string[]>([]);
 
+    const [initialPosition, setInitialPosition] = useState<[number, number]>([0, 0]);
+
     const [selectedUf, setSelectedUf] = useState('0');
     const [selectedCity, setSelectedCity] = useState('0');
+    const [selectedPosition, setSelectedPosition] = useState<[number, number]>([0, 0]);
 
+    /*
+     * Carrega a localização atual.
+     */
+    useEffect(() => {
+        navigator.geolocation.getCurrentPosition(position => {
+            const { latitude, longitude } = position.coords;
+            setInitialPosition([latitude, longitude]);
+        })
+    }, []);
+
+    /*
+     * Carrega os items da API automaticamente.
+     */
     useEffect(() => {
         api.get('items').then(response => {
             setItems(response.data);
         })
     }, []);
 
+    /*
+     * Carrega os UFs automaticamente.
+     */
     useEffect(() => {
         axios.get<IBGEUFResponse[]>('https://servicodados.ibge.gov.br/api/v1/localidades/estados').then(response => {
             const ufInitials = response.data.map(uf => uf.sigla);
@@ -43,6 +63,9 @@ const CreatePoint = () => {
         })
     }, []);
 
+    /*
+     * Carrega as cidades ao selecionar uma UF.
+     */
     useEffect(() => {
         if (selectedUf === '0')
             return;
@@ -63,6 +86,13 @@ const CreatePoint = () => {
     function handleSelectedCity(event: ChangeEvent<HTMLSelectElement>) {
         const city = event.target.value;
         setSelectedCity(city);
+    }
+
+    function handleMapClick(event: LeafletMouseEvent) {
+        setSelectedPosition([
+            event.latlng.lat,
+            event.latlng.lng
+        ]);
     }
 
     return (
@@ -121,13 +151,13 @@ const CreatePoint = () => {
                         <span>Selecione o endereço no mapa</span>
                     </legend>
 
-                    <Map center={[-9.3900172,-40.4821806]} zoom={15}>
+                    <Map center={[-9.3900172,-40.4821806]} zoom={2} onClick={handleMapClick}>
                         <TileLayer
                             attribution='&amp;copy <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         />
 
-                        <Marker position={[-9.3900172,-40.4821806]} />
+                        <Marker position={selectedPosition} />
                     </Map>
 
                     <div className="field-gorup">
