@@ -6,8 +6,11 @@ import { LeafletMouseEvent } from 'leaflet';
 import axios from 'axios';
 import api from '../../services/api';
 
+import Dropzone from '../../components/Dropzone';
+
 import './styles.css';
 import logo from '../../assets/logo.svg';
+import { fileURLToPath } from 'url';
 
 interface Item {
     id: number;
@@ -40,6 +43,7 @@ const CreatePoint = () => {
     const [selectedCity, setSelectedCity] = useState('0');
     const [selectedItems, setSelectedItems] = useState<number[]>([]);
     const [selectedPosition, setSelectedPosition] = useState<[number, number]>([0, 0]);
+    const [selectedFile, setSelectedFile] = useState<File>();
 
     const history = useHistory();
 
@@ -78,7 +82,7 @@ const CreatePoint = () => {
     useEffect(() => {
         if (selectedUf === '0')
             return;
-        
+
         axios
             .get<IBGECitiesResponse[]>(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${selectedUf}/municipios`)
             .then(response => {
@@ -107,7 +111,7 @@ const CreatePoint = () => {
     function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
         const { name, value } = event.target;
 
-        setFormData({ ...formData, [name]: value  });
+        setFormData({ ...formData, [name]: value });
     }
 
     function handleSelectItem(id: number) {
@@ -117,7 +121,7 @@ const CreatePoint = () => {
             const filteredItems = selectedItems.filter(item => item !== id);
             setSelectedItems(filteredItems);
         } else {
-            setSelectedItems([ ...selectedItems, id ]);
+            setSelectedItems([...selectedItems, id]);
         }
     }
 
@@ -130,15 +134,19 @@ const CreatePoint = () => {
         const [latitude, longitude] = selectedPosition;
         const items = selectedItems;
 
-        const data = {
-            name,
-            email,
-            whatsapp,
-            uf,
-            city,
-            latitude,
-            longitude,
-            items
+        const data = new FormData();
+
+        data.append('name', name);
+        data.append('email', email);
+        data.append('whatsapp', whatsapp);
+        data.append('uf', uf);
+        data.append('city', city);
+        data.append('latitude', String(latitude));
+        data.append('longitude', String(longitude));
+        data.append('items', items.join(','));
+
+        if (selectedFile) {
+            data.append('image', selectedFile);
         }
 
         await api.post('points', data);
@@ -162,6 +170,8 @@ const CreatePoint = () => {
             <form onSubmit={handleSubmit}>
                 <h1>Cadastro do <br /> ponto de coleta</h1>
 
+                <Dropzone onFileUploaded={setSelectedFile} />
+
                 <fieldset>
                     <legend>
                         <h2>Dados</h2>
@@ -169,7 +179,7 @@ const CreatePoint = () => {
 
                     <div className="field">
                         <label htmlFor="name">Nome da entidade</label>
-                        <input 
+                        <input
                             type="text"
                             id="name"
                             name="name"
@@ -180,17 +190,17 @@ const CreatePoint = () => {
                     <div className="field-group">
                         <div className="field">
                             <label htmlFor="email">E-mail</label>
-                            <input 
+                            <input
                                 type="email"
                                 id="email"
                                 name="email"
                                 onChange={handleInputChange}
                             />
                         </div>
-                        
+
                         <div className="field">
                             <label htmlFor="whatsapp">Whatsapp</label>
-                            <input 
+                            <input
                                 type="text"
                                 id="whatsapp"
                                 name="whatsapp"
@@ -199,7 +209,7 @@ const CreatePoint = () => {
                         </div>
                     </div>
                 </fieldset>
-                
+
                 <fieldset>
                     <legend>
                         <h2>Endereço</h2>
@@ -207,7 +217,7 @@ const CreatePoint = () => {
                         <span>Selecione o endereço no mapa</span>
                     </legend>
 
-                    <Map center={[-9.3900172,-40.4821806]} zoom={15} onClick={handleMapClick}>
+                    <Map center={[-9.3900172, -40.4821806]} zoom={15} onClick={handleMapClick}>
                         <TileLayer
                             attribution='&amp;copy <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -220,10 +230,10 @@ const CreatePoint = () => {
                         <div className="field">
                             <label htmlFor="uf">Estado (UF)</label>
 
-                            <select 
-                                id="uf" 
-                                name="uf" 
-                                value={selectedUf} 
+                            <select
+                                id="uf"
+                                name="uf"
+                                value={selectedUf}
                                 onChange={handleSelectedUf}
                             >
                                 <option value="0">Selecione uma UF</option>
@@ -237,14 +247,14 @@ const CreatePoint = () => {
                         <div className="field">
                             <label htmlFor="city">Cidade</label>
 
-                            <select 
+                            <select
                                 id="city"
-                                name="city" 
+                                name="city"
                                 value={selectedCity}
                                 onChange={handleSelectedCity}
                             >
                                 <option value="0">Selecione uma Cidade</option>
-                                
+
                                 {cities.map(city => (
                                     <option key={city} value={city}>{city}</option>
                                 ))}
@@ -252,7 +262,7 @@ const CreatePoint = () => {
                         </div>
                     </div>
                 </fieldset>
-                
+
                 <fieldset>
                     <legend>
                         <h2>Items de coleta</h2>
@@ -260,13 +270,13 @@ const CreatePoint = () => {
 
                     <ul className="items-grid">
                         {items.map(item => (
-                            <li 
+                            <li
                                 key={item.id}
                                 onClick={() => handleSelectItem(item.id)}
                                 className={selectedItems.includes(item.id) ? 'selected' : ''}
                             >
                                 <img src={item.image_url} alt={item.title} />
-                                
+
                                 <span>
                                     {item.title}
                                 </span>
@@ -274,13 +284,13 @@ const CreatePoint = () => {
                         ))}
                     </ul>
                 </fieldset>
-                
+
                 <button type="submit">
                     Cadastrar Ponto de Coleta
                 </button>
             </form>
         </div>
     );
-} 
+}
 
 export default CreatePoint;
